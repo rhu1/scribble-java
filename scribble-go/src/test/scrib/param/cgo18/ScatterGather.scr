@@ -1,0 +1,18 @@
+//Raymond@HZHL3 ~/code/eclipse/scribble/github.com/rhu1-go/scribble-java
+//$ bin/scribblec-param.sh -ip scribble-go/src/test/scrib/ -d scribble-go/src/test/scrib/ scribble-go/src/test/scrib/param/cgo18/ScatterGather.scr -param Proto1 -param-fsm B
+
+module param.cgo18.ScatterGather;
+
+
+type <go> "int" from "..." as int;
+
+
+//*
+global protocol Proto1(role A(k), role B(k))
+{
+	scatter(int) from A[1..1] to B[1..k];
+	gather(int)  from B[1..k] to A[1..1];
+}
+//*/
+
+
