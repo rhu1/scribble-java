@@ -74,9 +74,9 @@ public class EATest {
         Map<String, Function<Boolean, Either<Exception, Pair<Set<EAAsyncSystem>, Set<EAAsyncSystem>>>>>
                 tests = EAUtil.mapOf();
 
-        //origTests(tests);
+        origTests(tests);
         //hopeTests(tests);
-        savinaTests(tests);
+        //savinaTests(tests);
 
         for (Map.Entry<String, Function<Boolean, Either<Exception, Pair<Set<EAAsyncSystem>, Set<EAAsyncSystem>>>>> e : tests.entrySet()) {
             String name = e.getKey();
@@ -100,25 +100,30 @@ public class EATest {
         EALType S_SelfSnd = EACommandLine.parseSessionType("mu X . SelfRcv!{ PingMessage(1).X, StopMessage(1).end }");  // !!! StopMessage here is extra
         EALType S_SelfRcv = EACommandLine.parseSessionType("mu X . SelfSnd?{ PingMessage(1).X, StopMessage(1).end }");
 
-        EALType S_Pinger = EACommandLine.parseSessionType("mu X . Ponger!{ Ping(1).Ponger?{ Pong(1).X },  StopMessage(1).end }");
-        EALType S_Ponger = EACommandLine.parseSessionType("mu X . Pinger?{ Ping(1).Pinger!{ Pong(1).X },  StopMessage(1).end }");
+        //EALType S_Pinger = EACommandLine.parseSessionType("mu X . Ponger!{ Ping(1).Ponger?{ Pong(1).X },  StopMessage(1).end }");
+        //EALType S_Pinger = EACommandLine.parseSessionType("Ponger!{ Ping(1). mu X . Ponger?{Pong(1).Ponger!{ Ping(1).X,  StopMessage(1).end} },  StopMessage(1).end }");
+        EALType S_Pinger = EACommandLine.parseSessionType("mu X . Ponger?{ Pong(1).Ponger!{ Ping(1).X,  StopMessage(1).end } }");
+        EALType S_Ponger = EACommandLine.parseSessionType("mu X . Pinger?{ Ping(1).Pinger!{ Pong(1).X },  StopMessage(1).end }");  // !!! not dual to above
 
         System.out.println(S_SelfSnd);
         System.out.println(S_SelfRcv);
         System.out.println(S_Pinger);
         System.out.println(S_Ponger);
 
-        EALType in_S_Pinger = EACommandLine.parseSessionType("Ponger?{ Pong(1)." + S_Pinger + "}");
-        EALType unf_S_Pinger = EACommandLine.parseSessionType("Ponger!{ Ping(1)." + in_S_Pinger + ", StopMessage(1).end }");
-        String H_Pinger = "Handler (1, " + in_S_Pinger + ")";
+        //EALType in_S_Pinger = EACommandLine.parseSessionType("Ponger?{ Pong(1)." + S_Pinger + "}");
+        //EALType unf_S_Pinger = EACommandLine.parseSessionType("Ponger!{ Ping(1)." + in_S_Pinger + ", StopMessage(1).end }");
+        EALType out_S_Pinger = EACommandLine.parseSessionType("Ponger!{ Ping(1)." + S_Pinger + ",  StopMessage(1).end }");
+        EALType unf_S_Pinger = EACommandLine.parseSessionType("Ponger?{ Pong(1)." + out_S_Pinger + "}");
+        String H_Pinger = "Handler (1, " + unf_S_Pinger + ")";
         String f_Pinger = "{" + S_Pinger + "} 1 -> " + H_Pinger + " {" + S_Pinger + "}";
         EAMLet M_Pinger = (EAMLet) EACommandLine.parseM(
                 "let g: " + f_Pinger + " <= return"
 
-                        + "  (rec f {  " + in_S_Pinger + "} (x_f: 1): " + H_Pinger + "{" + in_S_Pinger + "} . return handler Ponger {"
-                        //+ "  (rec f {  " + S_Pinger + "} (x_f: 1): " + H_Pinger + "{" + S_Pinger + "} . return handler Ponger {"
+                        //+ "  (rec f {  " + in_S_Pinger + "} (x_f: 1): " + H_Pinger + "{" + in_S_Pinger + "} . return handler Ponger {"
+                        + "  (rec f {  " + S_Pinger + "} (x_f: 1): " + H_Pinger + "{" + S_Pinger + "} . return handler Ponger {"
 
-                        + "    {" + unf_S_Pinger + "} d: 1, Pong(x: 1) |->"
+                        //+ "    {" + unf_S_Pinger + "} d: 1, Pong(x: 1) |->"
+                        + "    {" + out_S_Pinger + "} d: 1, Pong(x: 1) |->"
 
                         + "      let y: 1 <= Ponger!Ping(()) in let z : " + H_Pinger + " <= [f ()] in suspend z ()"  // TODO count pingsLeft
 
@@ -162,7 +167,8 @@ public class EATest {
         System.out.println("Actor " + cPinger.pid + " = " + cPinger);
         System.out.println("Actor " + cPonger.pid + " = " + cPonger);
 
-        EACommandLine.typeCheckActor(cPinger, new Delta(EAUtil.mapOf(sPinger, S_Pinger)));
+        //EACommandLine.typeCheckActor(cPinger, new Delta(EAUtil.mapOf(sPinger, S_Pinger)));
+        EACommandLine.typeCheckActor(cPinger, new Delta(EAUtil.mapOf(sPinger, out_S_Pinger)));  // !!! initial types are not dual
         EACommandLine.typeCheckActor(cPonger, new Delta(EAUtil.mapOf(sPonger, S_Ponger)));
 
 

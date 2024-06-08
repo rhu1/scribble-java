@@ -47,7 +47,15 @@ public interface EALType extends EAType {
             if (found.equals(required) || found.unfoldAllOnce().equals(required.unfoldAllOnce())) {
                 return;
             }
-            equalSubFold(((EALRecType) found).body, ((EALRecType) required).body);
+            //System.out.println("2222222: " + found + "\n\t" + found.unfoldAllOnce() + "\n\t" + required + "\n\t" + required.unfoldAllOnce());
+            //System.out.println("2222222: " + found.unfoldAllOnce().equals(required.unfoldAllOnce()));
+            equalSubFold(found.unfoldAllOnce(), required);  // XXX potentially non terminating when not equals-unfold
+            return;
+        } else if (required instanceof EALRecType) {
+            if (found.equals(required) || found.unfoldAllOnce().equals(required.unfoldAllOnce())) {
+                return;
+            }
+            equalSubFold(found, required.unfoldAllOnce());  // XXX potentially non terminating when not equals-unfold
             return;
         } else if (found instanceof EALTypeIOBase) {
             if (found.equals(required) || found.unfoldAllOnce().equals(required.unfoldAllOnce())) {

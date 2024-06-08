@@ -61,15 +61,15 @@ public class EALRecType implements EALType {
 
     @Override
     public String toString() {
-        return "mu " + this.var + "." + this.body;
+        return "\u03bc" + this.var + "." + this.body;
     }
 
     /* equals/canEquals, hashCode */
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false; }
         EALRecType them = (EALRecType) o;
         return them.canEquals(this)
                 && this.var.equals(them.var) && this.body.equals(them.body);
