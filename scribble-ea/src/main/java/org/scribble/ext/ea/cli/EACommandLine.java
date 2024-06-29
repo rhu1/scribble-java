@@ -128,7 +128,7 @@ public class EACommandLine extends CommandLine {
 
     protected void foo(GProtocol inlined, Role r, EGraph efsm) {
         EAAPIGen gen = new EAAPIGen();
-        System.out.println("Generated:\n" + gen.generateAPI(inlined, r, efsm));
+        System.out.println("\n" + gen.generateAPI(inlined, r, efsm));
     }
 
     private static void eamain() {

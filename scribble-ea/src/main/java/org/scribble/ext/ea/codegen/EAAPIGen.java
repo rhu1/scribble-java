@@ -33,7 +33,7 @@ public class EAAPIGen {
 
     public String generateAPI(GProtocol inlined, Role r, EGraph efsm) {
 
-        System.out.println("[EAAPIGen] Generating API for: " + inlined.fullname + "@" + r);
+        System.out.println("\n[EAAPIGen] Generating API for: " + inlined.fullname + "@" + r);
 
         EState init = efsm.init;
         Set<EState> reachable = new HashSet<>(init.getReachableStates());
@@ -43,6 +43,8 @@ public class EAAPIGen {
 
         GProtoName proto = inlined.fullname.getSimpleName();
         List<Member> membs = new LinkedList<>();
+        membs.add(new GPackage("tmp.scratch.scratch07.foo"));
+        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Session")));
         for (EState s : ss) {
             EStateKind kind = s.getStateKind();
             switch (kind) {
@@ -55,7 +57,7 @@ public class EAAPIGen {
         }
 
         //return generateTop(proto, r) + "\n" + res;
-        return membs.stream().map(Object::toString).collect(Collectors.joining("\n\n"));
+        return membs.stream().map(Member::toString).collect(Collectors.joining("\n\n"));
     }
 
     /*// run takes Suspend if init is input
@@ -72,16 +74,22 @@ public class EAAPIGen {
                 new GParam(List.of(), SID_TYPE, SID_PARAM_NAME),
                 new GParam(List.of(), actorType, ACTOR_PARAM_NAME));
         List<String> susSupers = List.of(SUSPEND_TYPE + "[" + actorType + "]");
-        List<GMethod> susMethods = List.of();
+        List<GMethod> susMethods = List.of(generateSuspend(r, s));
         GClass sus = new GClass(susMods, susName, susParams, susMethods, susSupers);
 
         String name = getStateTypeName(r, s);
         GTrait state = new GTrait(List.of(SEALED_KW), name, List.of(ISTATE_TYPE));
 
         List<String> mods = susMods;
-        List<GParam> params = susParams;
+        List<GParam> params = List.of(
+                new GParam(List.of(), SID_TYPE, SID_PARAM_NAME),
+                new GParam(List.of(), "String", SEND_PAY_PARAM_NAME));
+        //new GParam(List.of(), getSuccTypeName(r, s, x), "s"));
         List<GClass> cases = s.getDetActions().stream()
-                .map(x -> new GClass(mods, getInputCaseType(r, (Op) x.mid), params, List.of(), List.of(name)))
+                .map(x -> new GClass(mods, getInputCaseType(r, (Op) x.mid),
+                        //params,
+                        Stream.concat(params.stream(), Stream.of(new GParam(List.of(), getSuccTypeName(r, s, x), "s"))).toList(),
+                        List.of(), List.of(name)))
                 .toList();
         //new GClass(susMods, susName, susParams, susMethods, susSupers);
 
@@ -94,7 +102,7 @@ public class EAAPIGen {
 
     protected GMethod generateSuspend(Role r, EState s) {
         String state = getStateTypeName(r, s);
-        List<GParam> params = List.of(new GParam(List.of(), "", "f"));
+        List<GParam> params = List.of(new GParam(List.of(), state + " => " + DONE_TYPE, "f"));
         Function<EAction, String> f = (x) -> {
             return "\n\tif (op == \"" + x.mid + "\") {"
                     + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", s\"${pay}\", " + getSuccTypeName(r, s, x) + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + "))"
@@ -104,13 +112,14 @@ public class EAAPIGen {
                 "val g = (op: String, pay: String) => {"
                         + "\n\tval msg: " + state + " ="
                         + s.getDetActions().stream().map(f::apply).collect(Collectors.joining())
-                        + "\n\t{"
+                        + "{"
                         + "\n\t\tthrow new RuntimeException(s\"[ERROR] Unexpected op: ${op}(${pay})\");"
-                        + "\n\tf.apply(msg)"
                         + "\n}"
-                        + "\nactor.setHandler(" + SID_PARAM_NAME + ", " + r + ", g)"
+                        + "\nf.apply(msg)"
+                        + "\n}"
+                        + "\nactor.setHandler(" + SID_PARAM_NAME + ", \"" + r + "\", g)"
                         + "\nDone";
-        return new GMethod(ACTOR_SUSPEND_METHOD, params, DONE_TYPE, body);
+        return new GMethod(List.of(), ACTOR_SUSPEND_METHOD, params, DONE_TYPE, body);
     }
 
     protected Member generateOutputState(GProtoName proto, Role r, EState s) {
@@ -135,9 +144,9 @@ public class EAAPIGen {
         String name = "send" + op;
         List<GParam> params = List.of(new GParam(List.of(), pay.toString(), SEND_PAY_PARAM_NAME));
         String body =
-                ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", " + dst + ", " + SEND_PAY_PARAM_NAME + ")"
-                        + "\n" + ret + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")";
-        return new GMethod(name, params, ret, body);
+                "\t" + ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", \"" + dst + "\", \"" + op + "\", " + SEND_PAY_PARAM_NAME + ")"
+                        + "\n\t" + ret + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")";
+        return new GMethod(List.of(), name, params, ret, body);
     }
 
     protected Member generateTerminalState(GProtoName proto, Role r, EState s) {
@@ -155,10 +164,10 @@ public class EAAPIGen {
     protected GMethod generateFinish(Role r) {
         String name = ACTOR_FINISH_METHOD;
         String body =
-                "val done = super." + ACTOR_FINISH_METHOD + "(): " + DONE_TYPE + " = {"
+                "val done = super." + ACTOR_FINISH_METHOD + "()"
                         + "\n\t" + ACTOR_PARAM_NAME + "." + ACTOR_END_METHOD + "(" + SID_PARAM_NAME + ", \"" + r + "\")"
                         + "\n\tdone";
-        return new GMethod(name, List.of(), DONE_TYPE, body);
+        return new GMethod(List.of("override"), name, List.of(), DONE_TYPE, body);
     }
 
 
@@ -195,14 +204,56 @@ public class EAAPIGen {
     }
 
     protected String getActorType(GProtoName proto, Role r) {
-        return proto + "Actor" + r;
+        //return proto + "Actor" + r;
+        return "Actor";  // !!!
     }
 }
 
 
 /* ... */
 
-interface Member { }
+interface Member {
+    String toString(String pref);
+}
+
+class GPackage implements Member {
+    public final String name;
+
+    public GPackage(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return toString("");
+    }
+
+    @Override
+    public String toString(String pref) {
+        return pref + "package " + this.name;
+    }
+}
+
+class GImport implements Member {
+    public final String pref;  // no trailing "."
+    public final List<String> names;  // non-empty
+
+    public GImport(String pref, List<String> names) {
+        this.pref = pref;
+        this.names = List.copyOf(names);
+    }
+
+    @Override
+    public String toString() {
+        return toString("");
+    }
+
+    @Override
+    public String toString(String pref) {
+        return pref + "import " + this.pref + "."
+                + (this.names.size() == 1 ? this.names.get(0) : "{" + this.names.stream().collect(Collectors.joining(", ")) + "}");
+    }
+}
 
 class GTrait implements Member {
     public final List<String> mods;
@@ -213,6 +264,17 @@ class GTrait implements Member {
         this.mods = List.copyOf(mods);
         this.name = name;
         this.supers = List.copyOf(supers);
+    }
+
+    @Override
+    public String toString() {
+        return toString("");
+    }
+
+    @Override
+    public String toString(String pref) {
+        return pref + this.mods.stream().collect(Collectors.joining(" ")) + " trait " + this.name
+                + (this.supers.isEmpty() ? "" : " extends " + supers.stream().collect(Collectors.joining(", ")));
     }
 }
 
@@ -231,30 +293,63 @@ class GClass implements Member {
         this.methods = List.copyOf(methods);
         this.supers = List.copyOf(supers);
     }
+
+    @Override
+    public String toString() {
+        return toString("");
+    }
+
+    @Override
+    public String toString(String pref) {
+        return pref + this.mods.stream().collect(Collectors.joining(" ")) + " class " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")"
+                + (this.supers.isEmpty() ? "" : " extends " + supers.stream().collect(Collectors.joining(", ")))
+                + (this.methods.isEmpty() ? "" :
+                " {\n" + pref + this.methods.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n\n")) + "\n}");
+    }
 }
 
-class GMethod {
+class GMethod implements Member {
+    public final List<String> mods;
     public final String name;
     public final List<GParam> params;
     public final String ret;
     public final String body;
 
-    public GMethod(String name, List<GParam> params, String ret, String body) {
+    public GMethod(List<String> mods, String name, List<GParam> params, String ret, String body) {
+        this.mods = List.copyOf(mods);
         this.name = name;
         this.params = List.copyOf(params);
         this.ret = ret;
         this.body = body;
     }
+
+    @Override
+    public String toString() {
+        return toString("");
+    }
+
+    @Override
+    public String toString(String pref) {
+        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "def " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + "): " + this.ret + " = {"
+                + "\n" + pref + this.body.replaceAll("\\n", "\n" + pref)
+                + "\n" + pref + "}";
+    }
 }
 
 class GParam {
-    final List<String> mod;
+    final List<String> mods;
     final String type;
     final String name;
 
-    public GParam(List<String> mod, String type, String name) {
-        this.mod = List.copyOf(mod);
+    public GParam(List<String> mods, String type, String name) {
+        this.mods = List.copyOf(mods);
         this.type = type;
         this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return this.mods.stream().collect(Collectors.joining(" "))
+                + " " + this.name + ": " + this.type;
     }
 }
