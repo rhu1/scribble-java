@@ -5,9 +5,18 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.Lexer;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTree;
+import org.scribble.cli.CLFlags;
 import org.scribble.cli.CommandLine;
 import org.scribble.cli.CommandLineException;
+import org.scribble.core.job.Core;
+import org.scribble.core.job.CoreArgs;
+import org.scribble.core.job.CoreContext;
+import org.scribble.core.lang.global.GProtocol;
+import org.scribble.core.model.endpoint.EGraph;
+import org.scribble.core.model.endpoint.EState;
+import org.scribble.core.type.name.GProtoName;
 import org.scribble.core.type.name.Role;
+import org.scribble.ext.ea.codegen.EAAPIGen;
 import org.scribble.ext.ea.core.runtime.*;
 import org.scribble.ext.ea.core.runtime.config.EACActor;
 import org.scribble.ext.ea.core.term.EATerm;
@@ -24,8 +33,10 @@ import org.scribble.ext.ea.core.type.value.EAVType;
 import org.scribble.ext.ea.parser.antlr.EACalculusLexer;
 import org.scribble.ext.ea.parser.antlr.EACalculusParser;
 import org.scribble.ext.ea.util.*;
-import org.scribble.util.AntlrSourceException;
-import org.scribble.util.Pair;
+import org.scribble.job.Job;
+import org.scribble.job.JobContext;
+import org.scribble.main.Main;
+import org.scribble.util.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -76,14 +87,51 @@ public class EACommandLine extends CommandLine {
     public static void main(String[] args)
             throws CommandLineException, AntlrSourceException {
 
-        //CommandLine.main(args);  // !!! base CommandLine fully bypassed -- No main module used
-        eamain();
-        //testParser();
+        ////CommandLine.main(args);
+        new EACommandLine(args).run();
+        //eamain();  // !!! base CommandLine fully bypassed -- No main module used
+
+        ////testParser();
+    }
+
+    @Override
+    protected CLFlags newCLFlags() {
+        return new EACLFlags();
+    }
+
+    // A Scribble extension should override as appropriate
+    // TODO: rename, barrier misleading (sounds like a sync)
+    @Override
+    protected void tryBarrierTask(Job job, Pair<String, String[]> task)
+            throws ScribException, CommandLineException {
+        switch (task.left) {
+            case EACLFlags.EA_API_GEN_FLAG: {
+                JobContext jobc = job.getContext();
+                GProtoName fullname = checkGlobalProtocolArg(jobc, task.right[0]);
+                //Map<String, String> out = jgen.generateSessionApi(fullname);* /
+                //System.out.println("aaaaaaa: " + task.left + ",, " + fullname);
+                Core core = job.getCore();
+                CoreContext corec = core.getContext();
+                GProtocol inlined = corec.getInlined(fullname);
+                for (Role r : inlined.roles) {
+                    EGraph efsm = job.config.args.get(CoreArgs.MIN_EFSM)
+                            ? corec.getMinimisedEGraph(fullname, r)
+                            : corec.getEGraph(fullname, r);
+                    foo(inlined, r, efsm);
+                }
+                break;
+            }
+            default:
+                super.tryBarrierTask(job, task);
+        }
+    }
+
+    protected void foo(GProtocol inlined, Role r, EGraph efsm) {
+        EAAPIGen gen = new EAAPIGen();
+        System.out.println("Generated:\n" + gen.generateAPI(inlined, r, efsm));
     }
 
     private static void eamain() {
-
-        //new EACommandLine(args).run();
 
         /* HERE HERE  // merge rhu1-refactorinterfaces -- i.e., latest scrib-core
 
@@ -106,10 +154,7 @@ public class EACommandLine extends CommandLine {
         - tidy foo vs. beta -- cf. some expr foo is just beta (some not, e.g., let)
         */
 
-        //System.out.println(parseV("2 + 3"));
-
         EATest.tests();
-
     }
 
 
