@@ -59,7 +59,7 @@ global protocol Proto1(role A, role B)
 }
 //*/
 
-//* // gen05
+/* // gen05
 global protocol Proto1(role A, role B, role C)
 {
 	L1(String) from A to B;
@@ -71,5 +71,40 @@ global protocol Proto1(role A, role B, role C)
 	    L3a(String) from B to A;
 	    L3c(String) from B to C;
 	}
+}
+//*/
+
+//* // Shop -- !!! unfair
+global protocol Proto1(role C, role S, role P)
+{
+    ReqItems(String) from C to S;
+    Items(String) from S to C;
+    do Proto1Aux(C, S, P);
+}
+
+aux global protocol Proto1Aux(role C, role S, role P)
+{
+    choice at C {
+        ItemInfo(String) from C to S;
+        do Proto1Aux(C, S, P);
+    } or {
+        Checkout(String) from C to S;
+        choice at S {
+            Processing(String) from S to C;
+            Buy(String) from S to P;
+            choice at P {
+                OK(String) from P to S;
+                OKc(String) from S to C;  // !!!
+                do Proto1Aux(C, S, P);
+            } or {
+                Declined(String) from P to S;
+                Declinedc(String) from S to C;  // !!!
+                do Proto1Aux(C, S, P);
+            }
+        } or {
+            OutOfStock(String) from S to C;
+            do Proto1Aux(C, S, P);
+        }
+    }
 }
 //*/

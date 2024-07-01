@@ -119,14 +119,14 @@ public class EAAPIGen {
         String state = getStateTypeName(names, s);
         List<GParam> params = List.of(new GParam(List.of(), state + " => " + DONE_TYPE, "f"));
         Function<EAction, String> f = (x) -> {
-            return "\n\tif (op == \"" + x.mid + "\") {"
+            return "\tif (op == \"" + x.mid + "\") {"
                     + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", s\"${pay}\", " + getSuccTypeName(names, s, x) + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + "))"
                     + "\n\t} else ";
         };
         String body =
                 "val g = (op: String, pay: String) => {"
                         + "\n\tval msg: " + state + " ="
-                        + s.getDetActions().stream().map(f::apply).collect(Collectors.joining())
+                        + "\n" + s.getDetActions().stream().map(f::apply).collect(Collectors.joining())
                         + "{"
                         + "\n\t\tthrow new RuntimeException(s\"[ERROR] Unexpected op: ${op}(${pay})\");"
                         + "\n\t}"
