@@ -7,9 +7,11 @@ import org.scribble.core.model.endpoint.EStateKind;
 import org.scribble.core.model.endpoint.actions.EAction;
 import org.scribble.core.type.kind.PayElemKind;
 import org.scribble.core.type.name.*;
+import org.scribble.util.Pair;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -35,11 +37,9 @@ public class EAAPIGen {
 
         System.out.println("\n[EAAPIGen] Generating API for: " + inlined.fullname + "@" + r);
 
-        EState init = efsm.init;
-        Set<EState> reachable = new HashSet<>(init.getReachableStates());
-        reachable.add(init);
-        List<EState> ss = reachable.stream()
-                .sorted(Comparator.comparingInt(o -> o.id)).toList();  // !!! TODO use order for API state numbering
+        Pair<List<EState>, Map<Integer, String>> pair = getStatesAndNames(r, efsm);
+        List<EState> ss = pair.left;
+        Map<Integer, String> names = pair.right;
 
         GProtoName proto = inlined.fullname.getSimpleName();
         List<Member> membs = new LinkedList<>();
@@ -48,10 +48,10 @@ public class EAAPIGen {
         for (EState s : ss) {
             EStateKind kind = s.getStateKind();
             switch (kind) {
-                case OUTPUT -> membs.add(generateOutputState(proto, r, s));
-                case UNARY_RECEIVE -> membs.addAll(generateInputState(proto, r, s));
-                case POLY_RECIEVE -> membs.addAll(generateInputState(proto, r, s));
-                case TERMINAL -> membs.add(generateTerminalState(proto, r, s));
+                case OUTPUT -> membs.add(generateOutputState(names, proto, r, s));
+                case UNARY_RECEIVE -> membs.addAll(generateInputState(names, proto, r, s));
+                case POLY_RECIEVE -> membs.addAll(generateInputState(names, proto, r, s));
+                case TERMINAL -> membs.add(generateTerminalState(names, proto, r, s));
                 default -> throw new RuntimeException("Unexpected state kind: " + kind);
             }
         }
@@ -60,24 +60,39 @@ public class EAAPIGen {
         return membs.stream().map(Member::toString).collect(Collectors.joining("\n\n"));
     }
 
-    /*// run takes Suspend if init is input
-    protected GClass generateTop(GProtoName proto, Role r) {
-        String name = getActorType();
-        return new GClass(mods, name, params, methods, supers);
-    }*/
+    public Pair<List<EState>, Map<Integer, String>> getStatesAndNames(Role r, EGraph efsm) {
+        EState init = efsm.init;
+        List<EState> ss = new LinkedList<>();
+        ss.add(init);
+        Set<EState> reachable = new HashSet<>(init.getReachableStates());
+        reachable.remove(init);
+        ss.addAll(reachable.stream().sorted(Comparator.comparingInt(o -> o.id)).toList());
 
-    protected List<Member> generateInputState(GProtoName proto, Role r, EState s) {
-        String susName = getSuspendTypeName(r, s);
+        int[] i = {1};
+        Supplier<String> nextName = () -> r.toString() + i[0]++;
+        Map<Integer, String> names = ss.stream().collect(Collectors.toMap(
+                x -> x.id,
+                x -> x.isTerminal() ? "End" + r : nextName.get()
+        ));
+
+        return new Pair<>(ss, names);
+    }
+
+
+    /* ... */
+
+    protected List<Member> generateInputState(Map<Integer, String> names, GProtoName proto, Role r, EState s) {
+        String susName = getSuspendTypeName(names, s);
         List<String> susMods = List.of("case");
         String actorType = getActorType(proto, r);
         List<GParam> susParams = List.of(
                 new GParam(List.of(), SID_TYPE, SID_PARAM_NAME),
                 new GParam(List.of(), actorType, ACTOR_PARAM_NAME));
         List<String> susSupers = List.of(SUSPEND_TYPE + "[" + actorType + "]");
-        List<GMethod> susMethods = List.of(generateSuspend(r, s));
+        List<GMethod> susMethods = List.of(generateSuspend(names, r, s));
         GClass sus = new GClass(susMods, susName, susParams, susMethods, susSupers);
 
-        String name = getStateTypeName(r, s);
+        String name = getStateTypeName(names, s);
         GTrait state = new GTrait(List.of(SEALED_KW), name, List.of(ISTATE_TYPE));
 
         List<String> mods = susMods;
@@ -88,7 +103,7 @@ public class EAAPIGen {
         List<GClass> cases = s.getDetActions().stream()
                 .map(x -> new GClass(mods, getInputCaseType(r, (Op) x.mid),
                         //params,
-                        Stream.concat(params.stream(), Stream.of(new GParam(List.of(), getSuccTypeName(r, s, x), "s"))).toList(),
+                        Stream.concat(params.stream(), Stream.of(new GParam(List.of(), getSuccTypeName(names, s, x), "s"))).toList(),
                         List.of(), List.of(name)))
                 .toList();
         //new GClass(susMods, susName, susParams, susMethods, susSupers);
@@ -100,12 +115,12 @@ public class EAAPIGen {
         return op.toString() + r;
     }
 
-    protected GMethod generateSuspend(Role r, EState s) {
-        String state = getStateTypeName(r, s);
+    protected GMethod generateSuspend(Map<Integer, String> names, Role r, EState s) {
+        String state = getStateTypeName(names, s);
         List<GParam> params = List.of(new GParam(List.of(), state + " => " + DONE_TYPE, "f"));
         Function<EAction, String> f = (x) -> {
             return "\n\tif (op == \"" + x.mid + "\") {"
-                    + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", s\"${pay}\", " + getSuccTypeName(r, s, x) + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + "))"
+                    + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", s\"${pay}\", " + getSuccTypeName(names, s, x) + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + "))"
                     + "\n\t} else ";
         };
         String body =
@@ -114,18 +129,18 @@ public class EAAPIGen {
                         + s.getDetActions().stream().map(f::apply).collect(Collectors.joining())
                         + "{"
                         + "\n\t\tthrow new RuntimeException(s\"[ERROR] Unexpected op: ${op}(${pay})\");"
-                        + "\n}"
-                        + "\nf.apply(msg)"
+                        + "\n\t}"
+                        + "\n\tf.apply(msg)"
                         + "\n}"
                         + "\nactor.setHandler(" + SID_PARAM_NAME + ", \"" + r + "\", g)"
                         + "\nDone";
         return new GMethod(List.of(), ACTOR_SUSPEND_METHOD, params, DONE_TYPE, body);
     }
 
-    protected Member generateOutputState(GProtoName proto, Role r, EState s) {
+    protected Member generateOutputState(Map<Integer, String> names, GProtoName proto, Role r, EState s) {
         String actorType = getActorType(proto, r);
         List<String> mods = List.of("case");
-        String name = getStateTypeName(r, s);
+        String name = getStateTypeName(names, s);
         List<GParam> params = List.of(
                 new GParam(List.of(), SID_TYPE, SID_PARAM_NAME),
                 new GParam(List.of(), actorType, ACTOR_PARAM_NAME)
@@ -134,7 +149,7 @@ public class EAAPIGen {
 
         List<GMethod> methods = s.getDetActions().stream()
                 .map(x -> generateSend(x.peer, (Op) x.mid,
-                        getPayloadType(x), getSuccTypeName(r, s, x)))
+                        getPayloadType(x), getSuccTypeName(names, s, x)))
                 .toList();
 
         return new GClass(mods, name, params, methods, supers);
@@ -144,14 +159,14 @@ public class EAAPIGen {
         String name = "send" + op;
         List<GParam> params = List.of(new GParam(List.of(), pay.toString(), SEND_PAY_PARAM_NAME));
         String body =
-                "\t" + ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", \"" + dst + "\", \"" + op + "\", " + SEND_PAY_PARAM_NAME + ")"
-                        + "\n\t" + ret + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")";
+                ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", \"" + dst + "\", \"" + op + "\", " + SEND_PAY_PARAM_NAME + ")"
+                        + "\n" + ret + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")";
         return new GMethod(List.of(), name, params, ret, body);
     }
 
-    protected Member generateTerminalState(GProtoName proto, Role r, EState s) {
+    protected Member generateTerminalState(Map<Integer, String> names, GProtoName proto, Role r, EState s) {
         List<String> mods = List.of("case");
-        String name = getStateTypeName(r, s);
+        String name = getStateTypeName(names, s);
         List<GParam> params = List.of(
                 new GParam(List.of(), SID_TYPE, SID_PARAM_NAME),
                 new GParam(List.of(), getActorType(proto, r), ACTOR_PARAM_NAME)
@@ -165,8 +180,9 @@ public class EAAPIGen {
         String name = ACTOR_FINISH_METHOD;
         String body =
                 "val done = super." + ACTOR_FINISH_METHOD + "()"
-                        + "\n\t" + ACTOR_PARAM_NAME + "." + ACTOR_END_METHOD + "(" + SID_PARAM_NAME + ", \"" + r + "\")"
-                        + "\n\tdone";
+                        + "\n" + ACTOR_PARAM_NAME + "." + ACTOR_END_METHOD + "(" + SID_PARAM_NAME + ", \"" + r + "\")"
+                        + "\ndone";
+        //ACTOR_FINISH_METHOD + "(" + SID_PARAM_NAME + ")";
         return new GMethod(List.of("override"), name, List.of(), DONE_TYPE, body);
     }
 
@@ -185,22 +201,26 @@ public class EAAPIGen {
         return (DataName) fst;
     }
 
-    protected String getSuccTypeName(Role r, EState s, EAction a) {
+    protected String getSuccTypeName(Map<Integer, String> names, EState s, EAction a) {
         EState succ = s.getDetSuccessor(a);
         EStateKind kind = succ.getStateKind();
         return kind == EStateKind.UNARY_RECEIVE || kind == EStateKind.POLY_RECIEVE
-                ? getSuspendTypeName(r, succ)
-                : getStateTypeName(r, succ);
+                ? getSuspendTypeName(names, succ)
+                : getStateTypeName(names, succ);
     }
 
-    protected String getSuspendTypeName(Role r, EState s) {
-        return getStateTypeName(r, s) + "Suspend";
+    protected String getSuspendTypeName(Map<Integer, String> names, EState s) {
+        return getStateTypeName(names, s) + "Suspend";
     }
 
-    protected String getStateTypeName(Role r, EState s) {
+    /*protected String getStateTypeName(Role r, EState s) {
         return s.getStateKind() == EStateKind.TERMINAL
                 ? "End" + r
                 : r.toString() + s.id;
+    }*/
+    // names already includes End
+    protected String getStateTypeName(Map<Integer, String> names, EState s) {
+        return names.get(s.id);
     }
 
     protected String getActorType(GProtoName proto, Role r) {
@@ -331,7 +351,7 @@ class GMethod implements Member {
     @Override
     public String toString(String pref) {
         return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "def " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + "): " + this.ret + " = {"
-                + "\n" + pref + this.body.replaceAll("\\n", "\n" + pref)
+                + "\n" + pref + "\t" + this.body.replaceAll("\\n", "\n" + pref + "\t")
                 + "\n" + pref + "}";
     }
 }
