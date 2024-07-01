@@ -1,0 +1,75 @@
+//Raymond@HZHL3 ~/code/scribble-java/scribble-java
+//$ bin/scribblec.sh -ip scribble-test/src/test/scrib/ -d scribble-test/src/test/scrib/tmp/ scribble-test/src/test/scrib/tmp/Test.scr
+//$ bin/scribblec.sh -ip scribble-test/src/test/scrib/ -d scribble-test/src/test/scrib/tmp/ scribble-test/src/test/scrib/tmp/Test.scr -api Proto1 B
+
+// OLD:
+//$ java -cp modules/cli/target/classes/';'modules/core/target/classes';'modules/trace/target/classes';'modules/parser/target/classes';c:\Users\Raymond\.m2\repository\org\antlr\antlr-runtime\3.2\antlr-runtime-3.2.jar;'modules/validation/target/classes/';'modules/projection/target/classes/';C:\Users\Raymond\.m2\repository\org\codehaus\jackson\jackson-mapper-asl\1.9.9\jackson-mapper-asl-1.9.9.jar;C:\Users\Raymond\.m2\repository\org\codehaus\jackson\jackson-core-asl\1.9.9\jackson-core-asl-1.9.9.jar' org.scribble.cli.CommandLine -path modules/core/src/test/scrib/ modules/core/src/test/scrib/Test.scr
+//$ java -cp modules/cli/target/classes/';'modules/core/target/classes';'modules/trace/target/classes';'modules/parser/target/classes';c:\Users\Raymond\.m2\repository\org\antlr\antlr-runtime\3.2\antlr-runtime-3.2.jar;'modules/validation/target/classes/';'modules/projection/target/classes/';C:\Users\Raymond\.m2\repository\org\codehaus\jackson\jackson-mapper-asl\1.9.9\jackson-mapper-asl-1.9.9.jar;C:\Users\Raymond\.m2\repository\org\codehaus\jackson\jackson-core-asl\1.9.9\jackson-core-asl-1.9.9.jar' org.scribble2.cli.CommandLine -path modules/validation/src/test/scrib/src modules/validation/src/test/scrib/src/Test.scr
+
+
+//http://sandbox.kidstrythisathome.com/erdos/
+
+
+module tmp.EATmp;
+
+
+//data <java> "..." from "..." as T;
+data <java> "java.lang.String" from "rt.jar" as String;
+
+
+// TODO pay types
+
+/* // gen01
+global protocol Proto1(role A, role B)
+{
+	L1(String) from A to B;
+}
+//*/
+
+/* // gen02
+global protocol Proto1(role A, role B)
+{
+	L1(String) from A to B;
+	L2(String) from B to A;
+}
+//*/
+
+/* // gen03
+global protocol Proto1(role A, role B)
+{
+	L1(String) from A to B;
+	choice at B {
+	    L2(String) from B to A;
+	} or {
+	    L3(String) from B to A;
+	}
+}
+//*/
+
+/* // gen04
+global protocol Proto1(role A, role B)
+{
+	L1(String) from A to B;
+	choice at B {
+	    L2(String) from B to A;
+	    do Proto1(A, B);
+	} or {
+	    L3(String) from B to A;
+	}
+}
+//*/
+
+//* // gen05
+global protocol Proto1(role A, role B, role C)
+{
+	L1(String) from A to B;
+	choice at B {
+	    L2a(String) from B to A;
+	    L2c(String) from B to C;
+	    do Proto1(A, B, C);
+	} or {
+	    L3a(String) from B to A;
+	    L3c(String) from B to C;
+	}
+}
+//*/
