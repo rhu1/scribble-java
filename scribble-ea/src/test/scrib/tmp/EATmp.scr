@@ -84,13 +84,19 @@ global protocol Proto1(role A, role B, role C)
 //*/
 
 
-//*// gen06
+/*// gen06
 global protocol Proto1(role A, role B) {
-    L1(Int) from A to B;
+    L1(Int) from A to B;  // testing payload types
 }
 //*/
 
 
+//*// gen07  // Testing multiple session (suspend/join/become), A1/A2 - B
+global protocol Proto1(role A, role B) {
+    L1(String) from A to B;
+    L2(String) from B to A;
+}
+//*/
 
 
 
