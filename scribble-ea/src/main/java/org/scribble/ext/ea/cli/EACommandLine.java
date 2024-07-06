@@ -13,10 +13,9 @@ import org.scribble.core.job.CoreArgs;
 import org.scribble.core.job.CoreContext;
 import org.scribble.core.lang.global.GProtocol;
 import org.scribble.core.model.endpoint.EGraph;
-import org.scribble.core.model.endpoint.EState;
 import org.scribble.core.type.name.GProtoName;
 import org.scribble.core.type.name.Role;
-import org.scribble.ext.ea.codegen.EAAPIGen;
+import org.scribble.ext.ea.codegen.EAApiGen;
 import org.scribble.ext.ea.core.runtime.*;
 import org.scribble.ext.ea.core.runtime.config.EACActor;
 import org.scribble.ext.ea.core.term.EATerm;
@@ -35,7 +34,6 @@ import org.scribble.ext.ea.parser.antlr.EACalculusParser;
 import org.scribble.ext.ea.util.*;
 import org.scribble.job.Job;
 import org.scribble.job.JobContext;
-import org.scribble.main.Main;
 import org.scribble.util.*;
 
 import java.util.*;
@@ -127,7 +125,7 @@ public class EACommandLine extends CommandLine {
     }
 
     protected void foo(GProtocol inlined, Role r, EGraph efsm) {
-        EAAPIGen gen = new EAAPIGen();
+        EAApiGen gen = new EAApiGen();
         System.out.println("\n" + gen.generateAPI(inlined, r, efsm));
     }
 

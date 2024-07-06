@@ -19,7 +19,7 @@ data <java> "java.lang.String" from "rt.jar" as String;
 
 // TODO pay types
 
-/* // gen01
+//* // gen01
 global protocol Proto1(role A, role B)
 {
 	L1(String) from A to B;
@@ -74,7 +74,9 @@ global protocol Proto1(role A, role B, role C)
 }
 //*/
 
-//* // Shop -- !!! unfair
+//* // Shop -- !!! -fair
+
+/*
 global protocol Proto1(role C, role S, role P)
 {
     ReqItems(String) from C to S;
@@ -94,11 +96,11 @@ aux global protocol Proto1Aux(role C, role S, role P)
             Buy(String) from S to P;
             choice at P {
                 OK(String) from P to S;
-                OKc(String) from S to C;  // !!!
+                OKc(String) from S to C;
                 do Proto1Aux(C, S, P);
             } or {
                 Declined(String) from P to S;
-                Declinedc(String) from S to C;  // !!!
+                Declinedc(String) from S to C;
                 do Proto1Aux(C, S, P);
             }
         } or {
