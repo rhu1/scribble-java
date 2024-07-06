@@ -118,6 +118,24 @@ public class EAApiGen {
         return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
     }
 
+    protected Pair<List<EState>, Map<Integer, String>> getStatesAndNames(Role r, EGraph efsm) {
+        EState init = efsm.init;
+        List<EState> ss = new LinkedList<>();
+        ss.add(init);
+        Set<EState> reachable = new HashSet<>(init.getReachableStates());
+        reachable.remove(init);
+        ss.addAll(reachable.stream().sorted(Comparator.comparingInt(o -> o.id)).toList());
+
+        int[] i = {1};
+        Supplier<String> nextName = () -> r.toString() + i[0]++;
+        Map<Integer, String> names = ss.stream().collect(Collectors.toMap(
+                x -> x.id,
+                x -> x.isTerminal() ? "End" + r : nextName.get()
+        ));
+
+        return new Pair<>(ss, names);
+    }
+
     protected GClass generateActorClass(Map<Integer, String> names, GProtoName proto, Role r, List<Role> peers, EState init) {
 
         String initName = getInitName(names, init);
@@ -128,6 +146,10 @@ public class EAApiGen {
         List<String> supers = List.of("Actor(" + PID_PARAM_NAME + ")");
         List<GMethod> methods = List.of(generateSpawnAndRegister(proto, r, peers, initName));
         return new GClass(List.of(), name, params, List.of(), methods, supers);
+    }
+
+    protected String getProtoPackageName(GProtoName proto) {
+        return proto.getSimpleName().toString().toLowerCase(Locale.ROOT);
     }
 
     protected String getActorClassName(Role r) {
@@ -154,28 +176,6 @@ public class EAApiGen {
         return new GMethod(List.of(), name, tParams, params, ret, body);
     }
 
-    protected String getProtoPackageName(GProtoName proto) {
-        return proto.getSimpleName().toString().toLowerCase(Locale.ROOT);
-    }
-
-    protected Pair<List<EState>, Map<Integer, String>> getStatesAndNames(Role r, EGraph efsm) {
-        EState init = efsm.init;
-        List<EState> ss = new LinkedList<>();
-        ss.add(init);
-        Set<EState> reachable = new HashSet<>(init.getReachableStates());
-        reachable.remove(init);
-        ss.addAll(reachable.stream().sorted(Comparator.comparingInt(o -> o.id)).toList());
-
-        int[] i = {1};
-        Supplier<String> nextName = () -> r.toString() + i[0]++;
-        Map<Integer, String> names = ss.stream().collect(Collectors.toMap(
-                x -> x.id,
-                x -> x.isTerminal() ? "End" + r : nextName.get()
-        ));
-
-        return new Pair<>(ss, names);
-    }
-
     /* ... */
 
     protected List<GIndentable> generateInputState(Map<Integer, String> names, GProtoName proto, Role r, EState s) {
@@ -195,13 +195,18 @@ public class EAApiGen {
 
         List<String> mods = susMods;
         List<GParam> params = List.of(
-                new GParam(List.of(), SID_TYPE, SID_PARAM_NAME),
-                new GParam(List.of(), "String", SEND_PAY_PARAM_NAME));
+                new GParam(List.of(), SID_TYPE, SID_PARAM_NAME));
+        //new GParam(List.of(), "String", SEND_PAY_PARAM_NAME));
         //new GParam(List.of(), getSuccTypeName(r, s, x), "s"));
         List<GClass> cases = s.getDetActions().stream()
                               .map(x -> new GClass(mods, getInputCaseType(r, (Op) x.mid),
                                       //params,
-                                      Stream.concat(params.stream(), Stream.of(new GParam(List.of(), getSuccTypeName(names, s, x), "s"))).toList(),
+                                      Stream.concat(
+                                              params.stream(),
+                                              Stream.of(
+                                                      new GParam(List.of(), getPayloadType(x).toString(), SEND_PAY_PARAM_NAME),
+                                                      new GParam(List.of(), getSuccTypeName(names, s, x), "s"))
+                                      ).toList(),
                                       List.of(), List.of(), List.of(name)))
                               .toList();
         //new GClass(susMods, susName, susParams, susMethods, susSupers);
@@ -223,10 +228,10 @@ public class EAApiGen {
                 "\tif (op == \"" + x.mid + "\") {"
                         + "\n\t\tval s = " + getSuccTypeName(names, s, x) + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")"
                         + "\n\t\tsucc = Some(s)"
-                        + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", s\"${pay}\", s)"
+                        + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", pay.asInstanceOf[" + getPayloadType(x) + "], s)"
                         + "\n\t} else ";
         String body = CHECK_NOT_USED_METHOD + "()"
-                + "\nval g = (op: String, pay: String) => {"
+                + "\nval g = (op: String, pay: Object) => {"  // !!! Object -- cf. generic lambda not directly supported?
                 + "\nvar succ: Option[Session.ActorState[Actor]] = None"
                 + "\n\tval msg: " + state + " ="
                 + "\n" + s.getDetActions().stream().map(f).collect(Collectors.joining())

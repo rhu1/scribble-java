@@ -14,12 +14,15 @@ module tmp.EATmp;
 
 
 //data <java> "..." from "..." as T;
-data <java> "java.lang.String" from "rt.jar" as String;
+data <scala> "String" from "TODO" as String;
+data <scala> "Int" from "TODO" as Int;
 
 
-// TODO pay types
-// package/module
-// immutable data objects
+// TODO
+// - pay types -> (de)serialization in Actor.sendMessage and handle SEND
+// - package from module
+// - immutable data objects?
+
 
 /* // gen01
 global protocol Proto1(role A, role B)
@@ -28,6 +31,7 @@ global protocol Proto1(role A, role B)
 }
 //*/
 
+
 /* // gen02
 global protocol Proto1(role A, role B)
 {
@@ -35,6 +39,7 @@ global protocol Proto1(role A, role B)
 	L2(String) from B to A;
 }
 //*/
+
 
 /* // gen03
 global protocol Proto1(role A, role B)
@@ -47,6 +52,7 @@ global protocol Proto1(role A, role B)
 	}
 }
 //*/
+
 
 /* // gen04
 global protocol Proto1(role A, role B)
@@ -61,7 +67,8 @@ global protocol Proto1(role A, role B)
 }
 //*/
 
-//* // gen05
+
+/* // gen05
 global protocol Proto1(role A, role B, role C)
 {
 	L1(String) from A to B;
@@ -76,9 +83,21 @@ global protocol Proto1(role A, role B, role C)
 }
 //*/
 
-//* // Shop -- !!! -fair
 
-/*
+//*// gen06
+global protocol Proto1(role A, role B) {
+    L1(Int) from A to B;
+}
+//*/
+
+
+
+
+
+
+
+
+/* // Shop -- !!! -fair
 global protocol Proto1(role C, role S, role P)
 {
     ReqItems(String) from C to S;
