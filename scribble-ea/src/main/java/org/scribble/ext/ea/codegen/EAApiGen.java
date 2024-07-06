@@ -28,7 +28,8 @@ public class EAApiGen {
     public static final String END_TYPE = "Session.End";
     public static final String SEND_PAY_PARAM_NAME = "x";
     public static final String SUSPEND_CB_PARAM_NAME = "f";
-    public static final String ACTOR_SPAWNANDREGISTER_METHOD = "spawnAndRegister";
+    public static final String ACTOR_SPAWNANDREGISTER_METHOD = "spawnAndRegister";  // deprecate
+    public static final String ACTOR_ENQUEUEREGISTER_METHOD = "enqueueRegisterForPeers";
     public static final String ACTOR_SENDMESSAGE_METHOD = "sendMessage";
     public static final String ACTOR_SUSPEND_METHOD = "suspend";
     public static final String ACTOR_FINISH_METHOD = "finish";
@@ -144,7 +145,7 @@ public class EAApiGen {
         //String actorType = getActorType(proto, r);
         List<GParam> params = List.of(new GParam(List.of(), PID_TYPE, PID_PARAM_NAME));
         List<String> supers = List.of("Actor(" + PID_PARAM_NAME + ")");
-        List<GMethod> methods = List.of(generateSpawnAndRegister(proto, r, peers, initName));
+        List<GMethod> methods = List.of(generateRegister(proto, r, peers, initName));
         return new GClass(List.of(), name, params, List.of(), methods, supers);
     }
 
@@ -160,6 +161,23 @@ public class EAApiGen {
         return getSuccTypeName(names, init);
     }
 
+    protected GMethod generateRegister(GProtoName proto, Role r, List<Role> peers, String initName) {
+        String name = "register";
+        List<GTParam> tParams = List.of(new GTParam("D", "Session.Data"));
+        List<GParam> params = List.of(
+                new GParam(List.of(), "Int", "port"),
+                new GParam(List.of(), "String", "apHost"),
+                new GParam(List.of(), "Int", "apPort"),
+                new GParam(List.of(), "D", "d"),
+                new GParam(List.of(), "(D, " + initName + ") => " + DONE_TYPE, "f"));
+        String ret = "Unit";
+        String body =
+                "val g = (" + SID_PARAM_NAME + ": " + SID_TYPE + ") => " + initName + "(" + SID_PARAM_NAME + ", this)"
+                        + "\n" + ACTOR_ENQUEUEREGISTER_METHOD + "(apHost, apPort, \"" + proto + "\", \"" + r + "\", port, d, f, g, Set(" + peers.stream().map(y -> "\"" + y + "\"").collect(Collectors.joining(", ")) + "))";
+        return new GMethod(List.of(), name, tParams, params, ret, body);
+    }
+
+    // !!! Deprecate
     protected GMethod generateSpawnAndRegister(GProtoName proto, Role r, List<Role> peers, String initName) {
         String name = "spawnAndRegister";
         List<GTParam> tParams = List.of(new GTParam("D", "Session.Data"));
