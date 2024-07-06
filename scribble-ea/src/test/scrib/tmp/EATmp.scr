@@ -21,14 +21,14 @@ data <java> "java.lang.String" from "rt.jar" as String;
 // package/module
 // immutable data objects
 
-//* // gen01
+/* // gen01
 global protocol Proto1(role A, role B)
 {
 	L1(String) from A to B;
 }
 //*/
 
-/* // gen02
+//* // gen02
 global protocol Proto1(role A, role B)
 {
 	L1(String) from A to B;

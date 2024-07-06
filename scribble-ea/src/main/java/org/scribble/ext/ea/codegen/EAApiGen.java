@@ -41,6 +41,9 @@ public class EAApiGen {
 
     //protected static final GField IS_USED_FIELD = new GField(List.of("var"), "Boolean", IS_USED_FIELD_NAME, "false");
 
+
+    /* ... */
+
     public String generateProtoAPI(GProtocol inlined) {
         System.out.println("\n[EAAPIGen] Generating Proto API for: " + inlined.fullname);
 
@@ -51,47 +54,10 @@ public class EAApiGen {
         membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
         membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("AP", "Session")));
 
-        List<Role> all = inlined.roles.stream().sorted(
-                (o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())
-        ).toList();
+        List<Role> all = //inlined.roles.stream().sorted((o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())).toList();
+                inlined.roles;
         membs.add(generateAPCompanion(proto, all));
         membs.add(generateAPClass(proto));
-        return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
-    }
-
-    public String generateRoleAPI(GProtocol inlined, Role r, EGraph efsm) {
-
-        System.out.println("\n[EAAPIGen] Generating Role API for: " + inlined.fullname + "@" + r);
-
-        Pair<List<EState>, Map<Integer, String>> pair = getStatesAndNames(r, efsm);
-        List<EState> ss = pair.left;
-        Map<Integer, String> names = pair.right;
-
-        GProtoName proto = inlined.fullname.getSimpleName();
-        List<GIndentable> membs = new LinkedList<>();
-
-        // !!! FIXME
-        membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
-        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Net", "Session")));
-
-        List<Role> peers = inlined.roles.stream().filter(x -> !x.equals(r)).sorted(
-                (o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())
-        ).toList();
-        membs.add(generateActorClass(names, proto, r, peers, ss.get(0)));
-
-        for (EState s : ss) {
-
-            EStateKind kind = s.getStateKind();
-            switch (kind) {
-                case OUTPUT -> membs.add(generateOutputState(names, proto, r, s));
-                case UNARY_RECEIVE -> membs.addAll(generateInputState(names, proto, r, s));
-                case POLY_RECIEVE -> membs.addAll(generateInputState(names, proto, r, s));
-                case TERMINAL -> membs.add(generateTerminalState(names, proto, r, s));
-                default -> throw new RuntimeException("Unexpected state kind: " + kind);
-            }
-        }
-
-        //return generateTop(proto, r) + "\n" + res;
         return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
     }
 
@@ -114,8 +80,42 @@ public class EAApiGen {
         return new GClass(List.of(), name, List.of(), List.of(), List.of(), supers);
     }
 
-    protected String getActorClassName(Role r) {
-        return "Actor" + r;
+
+    /* ... */
+
+    public String generateRoleAPI(GProtocol inlined, Role r, EGraph efsm) {
+
+        System.out.println("\n[EAAPIGen] Generating Role API for: " + inlined.fullname + "@" + r);
+
+        Pair<List<EState>, Map<Integer, String>> pair = getStatesAndNames(r, efsm);
+        List<EState> ss = pair.left;
+        Map<Integer, String> names = pair.right;
+
+        GProtoName proto = inlined.fullname.getSimpleName();
+        List<GIndentable> membs = new LinkedList<>();
+
+        // !!! FIXME
+        membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
+        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Net", "Session")));
+
+        List<Role> peers = //inlined.roles.stream().filter(x -> !x.equals(r)).sorted((o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())).toList();
+                inlined.roles.stream().filter(x -> !x.equals(r)).toList();
+        membs.add(generateActorClass(names, proto, r, peers, ss.get(0)));
+
+        for (EState s : ss) {
+
+            EStateKind kind = s.getStateKind();
+            switch (kind) {
+                case OUTPUT -> membs.add(generateOutputState(names, proto, r, s));
+                case UNARY_RECEIVE -> membs.addAll(generateInputState(names, proto, r, s));
+                case POLY_RECIEVE -> membs.addAll(generateInputState(names, proto, r, s));
+                case TERMINAL -> membs.add(generateTerminalState(names, proto, r, s));
+                default -> throw new RuntimeException("Unexpected state kind: " + kind);
+            }
+        }
+
+        //return generateTop(proto, r) + "\n" + res;
+        return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
     }
 
     protected GClass generateActorClass(Map<Integer, String> names, GProtoName proto, Role r, List<Role> peers, EState init) {
@@ -128,6 +128,10 @@ public class EAApiGen {
         List<String> supers = List.of("Actor(" + PID_PARAM_NAME + ")");
         List<GMethod> methods = List.of(generateSpawnAndRegister(proto, r, peers, initName));
         return new GClass(List.of(), name, params, List.of(), methods, supers);
+    }
+
+    protected String getActorClassName(Role r) {
+        return "Actor" + r;
     }
 
     protected String getInitName(Map<Integer, String> names, EState init) {
@@ -414,7 +418,7 @@ class GField extends GParam implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return super.toString() + " = " + this.init;
+        return pref + super.toString() + " = " + this.init;
     }
 }
 
