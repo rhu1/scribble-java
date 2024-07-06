@@ -55,7 +55,7 @@ public class EAApiGen {
                 (o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())
         ).toList();
         membs.add(generateAPCompanion(proto, all));
-        membs.add(generateAPClass(proto, all));
+        membs.add(generateAPClass(proto));
         return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
     }
 
@@ -108,7 +108,7 @@ public class EAApiGen {
         return new GObject(List.of(), name, List.of(), fields, List.of(), List.of());
     }
 
-    protected GClass generateAPClass(GProtoName proto, List<Role> all) {
+    protected GClass generateAPClass(GProtoName proto) {
         String name = getAPClassName(proto);
         List<String> supers = List.of("AP(" + name + ".name, " + name + ".roles.toSet)");
         return new GClass(List.of(), name, List.of(), List.of(), List.of(), supers);
@@ -225,7 +225,7 @@ public class EAApiGen {
                 + "\nval g = (op: String, pay: String) => {"
                 + "\nvar succ: Option[Session.ActorState[Actor]] = None"
                 + "\n\tval msg: " + state + " ="
-                + "\n" + s.getDetActions().stream().map(f::apply).collect(Collectors.joining())
+                + "\n" + s.getDetActions().stream().map(f).collect(Collectors.joining())
                 + "{"
                 + "\n\t\tthrow new RuntimeException(s\"[ERROR] Unexpected op: ${op}(${pay})\");"
                 + "\n\t}"
@@ -376,7 +376,7 @@ class GImport implements GIndentable {
     @Override
     public String toString(String pref) {
         return pref + "import " + this.pref + "."
-                + (this.names.size() == 1 ? this.names.get(0) : "{" + this.names.stream().collect(Collectors.joining(", ")) + "}");
+                + (this.names.size() == 1 ? this.names.get(0) : "{" + String.join(", ", this.names) + "}");
     }
 }
 
@@ -398,8 +398,8 @@ class GTrait implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + this.mods.stream().collect(Collectors.joining(" ")) + " trait " + this.name
-                + (this.supers.isEmpty() ? "" : " extends " + supers.stream().collect(Collectors.joining(", ")));
+        return pref + String.join(" ", this.mods) + " trait " + this.name
+                + (this.supers.isEmpty() ? "" : " extends " + String.join(", ", supers));
     }
 }
 
@@ -459,8 +459,8 @@ abstract class GClassOrCompanion implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + this.kind + " " + this.name + (this.params.isEmpty() ? "" : "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")")
-                + (this.supers.isEmpty() ? "" : " extends " + supers.stream().collect(Collectors.joining(", ")))
+        return pref + (this.mods.isEmpty() ? "" : String.join(" ", this.mods) + " ") + this.kind + " " + this.name + (this.params.isEmpty() ? "" : "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")")
+                + (this.supers.isEmpty() ? "" : " extends " + String.join(", ", supers))
                 + (this.fields.isEmpty()
                    ? ""
                    : " {\n" + pref + this.fields.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n")) + "\n}")
@@ -494,7 +494,7 @@ class GMethod implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "def " + this.name + (this.tParams.isEmpty() ? "" : "[" + this.tParams.stream().map(GTParam::toString).collect(Collectors.joining(", ")) + "]") + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + "): " + this.ret + " = {"
+        return pref + (this.mods.isEmpty() ? "" : String.join(" ", this.mods) + " ") + "def " + this.name + (this.tParams.isEmpty() ? "" : "[" + this.tParams.stream().map(GTParam::toString).collect(Collectors.joining(", ")) + "]") + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + "): " + this.ret + " = {"
                 + "\n" + pref + "\t" + this.body.replaceAll("\\n", "\n" + pref + "\t")
                 + "\n" + pref + "}";
     }
@@ -528,7 +528,7 @@ class GParam {
 
     @Override
     public String toString() {
-        return (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ")
+        return (this.mods.isEmpty() ? "" : String.join(" ", this.mods) + " ")
                 + this.name + ": " + this.type;
     }
 }
