@@ -28,7 +28,7 @@ global protocol Proto1(role A, role B)
 }
 //*/
 
-//* // gen02
+/* // gen02
 global protocol Proto1(role A, role B)
 {
 	L1(String) from A to B;
@@ -61,7 +61,7 @@ global protocol Proto1(role A, role B)
 }
 //*/
 
-/* // gen05
+//* // gen05
 global protocol Proto1(role A, role B, role C)
 {
 	L1(String) from A to B;
