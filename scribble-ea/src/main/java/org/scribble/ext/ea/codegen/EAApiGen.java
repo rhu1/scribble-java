@@ -275,12 +275,23 @@ public class EAApiGen {
         );
         List<String> supers = List.of(OSTATE_TYPE + "[" + actorType + "]");
 
-        List<GMethod> methods = s.getDetActions().stream()
-                                 .map(x -> generateSend(x.peer, (Op) x.mid,
-                                         getPayloadType(x), getSuccTypeName(names, s, x)))
-                                 .toList();
+        List<GMethod> methods = Stream.concat(
+                s.getDetActions().stream()
+                 .map(x -> generateSend(x.peer, (Op) x.mid,
+                         getPayloadType(x), getSuccTypeName(names, s, x))),
+                Stream.of(generateWeaken(name))
+        ).toList();
 
         return new GClass(mods, name, params, List.of(), methods, supers);
+    }
+
+    protected GMethod generateWeaken(String stateType) {
+        String name = "weaken";
+        String ret = "(" + stateType + ", " + DONE_TYPE + ")";
+        String body =
+                "this.isUsed = true"
+                        + "\n(" + stateType + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + "), Done)";
+        return new GMethod(List.of(), name, List.of(), List.of(), ret, body);
     }
 
     protected GMethod generateSend(Role dst, Op op, DataName pay, String ret) {

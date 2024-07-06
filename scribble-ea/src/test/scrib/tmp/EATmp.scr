@@ -91,7 +91,7 @@ global protocol Proto1(role A, role B) {
 //*/
 
 
-//*// gen07  // Testing multiple session (suspend/join/become), A1/A2 - B
+//*// gen07, gen08  // Testing multiple session (suspendbang/join/become -- weaken/affine), A1/A2 - B
 global protocol Proto1(role A, role B) {
     L1(String) from A to B;
     L2(String) from B to A;
