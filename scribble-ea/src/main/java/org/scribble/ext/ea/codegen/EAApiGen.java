@@ -347,7 +347,7 @@ class GClass implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + this.mods.stream().collect(Collectors.joining(" ")) + " class " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")"
+        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "class " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")"
                 + (this.supers.isEmpty() ? "" : " extends " + supers.stream().collect(Collectors.joining(", ")))
                 + (this.fields.isEmpty()
                    ? ""
@@ -399,7 +399,7 @@ class GParam {
 
     @Override
     public String toString() {
-        return this.mods.stream().collect(Collectors.joining(" "))
-                + " " + this.name + ": " + this.type;
+        return (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ")
+                + this.name + ": " + this.type;
     }
 }
