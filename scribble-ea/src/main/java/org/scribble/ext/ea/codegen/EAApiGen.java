@@ -17,6 +17,8 @@ import java.util.stream.Stream;
 
 public class EAApiGen {
 
+    public static final String PID_TYPE = "Net.Pid";
+    public static final String PID_PARAM_NAME = "pid";
     public static final String SID_TYPE = "Session.Sid";
     public static final String SID_PARAM_NAME = "sid";
     public static final String ACTOR_PARAM_NAME = "actor";
@@ -26,6 +28,7 @@ public class EAApiGen {
     public static final String END_TYPE = "Session.End";
     public static final String SEND_PAY_PARAM_NAME = "x";
     public static final String SUSPEND_CB_PARAM_NAME = "f";
+    public static final String ACTOR_SPAWNANDREGISTER_METHOD = "spawnAndRegister";
     public static final String ACTOR_SENDMESSAGE_METHOD = "sendMessage";
     public static final String ACTOR_SUSPEND_METHOD = "suspend";
     public static final String ACTOR_FINISH_METHOD = "finish";
@@ -48,8 +51,14 @@ public class EAApiGen {
 
         GProtoName proto = inlined.fullname.getSimpleName();
         List<GIndentable> membs = new LinkedList<>();
-        membs.add(new GPackage("tmp.scratch.scratch07.foo"));
-        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Session")));
+
+        // !!! FIXME
+        membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
+        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Session", "Net")));
+
+        List<Role> peers = inlined.roles.stream().filter(x -> !x.equals(r)).toList();
+        membs.add(generateActorClass(names, proto, r, peers, ss.get(0)));
+
         for (EState s : ss) {
             EStateKind kind = s.getStateKind();
             switch (kind) {
@@ -65,7 +74,47 @@ public class EAApiGen {
         return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
     }
 
-    public Pair<List<EState>, Map<Integer, String>> getStatesAndNames(Role r, EGraph efsm) {
+    protected String getActorClassName(Role r) {
+        return "Actor" + r;
+    }
+
+    protected GClass generateActorClass(Map<Integer, String> names, GProtoName proto, Role r, List<Role> peers, EState init) {
+
+        String initName = getInitName(names, init);
+
+        String name = getActorClassName(r);
+        //String actorType = getActorType(proto, r);
+        List<GParam> params = List.of(new GParam(List.of(), PID_TYPE, PID_PARAM_NAME));
+        List<String> supers = List.of("Actor(" + PID_PARAM_NAME + ")");
+        List<GMethod> methods = List.of(generateSpawnAndRegister(proto, r, peers, initName));
+        return new GClass(List.of(), name, params, List.of(), methods, supers);
+    }
+
+    protected String getInitName(Map<Integer, String> names, EState init) {
+        return getSuccTypeName(names, init);
+    }
+
+    protected GMethod generateSpawnAndRegister(GProtoName proto, Role r, List<Role> peers, String initName) {
+        String name = "spawnAndRegister";
+        List<GTParam> tParams = List.of(new GTParam("D", "Session.Data"));
+        List<GParam> params = List.of(
+                new GParam(List.of(), "Int", "port"),
+                new GParam(List.of(), "String", "apHost"),
+                new GParam(List.of(), "Int", "apPort"),
+                new GParam(List.of(), "D", "d"),
+                new GParam(List.of(), "(D, " + initName + ") => " + DONE_TYPE, "f"));
+        String ret = "Unit";
+        String body =
+                "val g = (" + SID_PARAM_NAME + ": " + SID_TYPE + ") => " + initName + "(" + SID_PARAM_NAME + ", this)"
+                        + "\n" + ACTOR_SPAWNANDREGISTER_METHOD + "(apHost, apPort, \"" + proto + "\", \"" + r + "\", port, d, f, g, Set(" + peers.stream().map(y -> "\"" + y + "\"").collect(Collectors.joining(", ")) + "))";
+        return new GMethod(List.of(), name, tParams, params, ret, body);
+    }
+
+    protected String getProtoPackageName(GProtoName proto) {
+        return proto.getSimpleName().toString().toLowerCase(Locale.ROOT);
+    }
+
+    protected Pair<List<EState>, Map<Integer, String>> getStatesAndNames(Role r, EGraph efsm) {
         EState init = efsm.init;
         List<EState> ss = new LinkedList<>();
         ss.add(init);
@@ -215,6 +264,10 @@ public class EAApiGen {
 
     protected String getSuccTypeName(Map<Integer, String> names, EState s, EAction a) {
         EState succ = s.getDetSuccessor(a);
+        return getSuccTypeName(names, succ);
+    }
+
+    protected String getSuccTypeName(Map<Integer, String> names, EState succ) {
         EStateKind kind = succ.getStateKind();
         return kind == EStateKind.UNARY_RECEIVE || kind == EStateKind.POLY_RECIEVE
                ? getSuspendTypeName(names, succ)
