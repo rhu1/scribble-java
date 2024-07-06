@@ -111,11 +111,13 @@ public class EACommandLine extends CommandLine {
                 Core core = job.getCore();
                 CoreContext corec = core.getContext();
                 GProtocol inlined = corec.getInlined(fullname);
+                EAApiGen gen = new EAApiGen();
+                System.out.println("\n" + gen.generateProtoAPI(inlined));
                 for (Role r : inlined.roles) {
                     EGraph efsm = job.config.args.get(CoreArgs.MIN_EFSM)
-                            ? corec.getMinimisedEGraph(fullname, r)
-                            : corec.getEGraph(fullname, r);
-                    foo(inlined, r, efsm);
+                                  ? corec.getMinimisedEGraph(fullname, r)
+                                  : corec.getEGraph(fullname, r);
+                    foo(gen, inlined, r, efsm);
                 }
                 break;
             }
@@ -124,9 +126,8 @@ public class EACommandLine extends CommandLine {
         }
     }
 
-    protected void foo(GProtocol inlined, Role r, EGraph efsm) {
-        EAApiGen gen = new EAApiGen();
-        System.out.println("\n" + gen.generateAPI(inlined, r, efsm));
+    protected void foo(EAApiGen gen, GProtocol inlined, Role r, EGraph efsm) {
+        System.out.println("\n" + gen.generateRoleAPI(inlined, r, efsm));
     }
 
     private static void eamain() {
@@ -219,8 +220,8 @@ public class EACommandLine extends CommandLine {
         }
         if (debug) {
             System.out.println(t.getRight().stream()  // !!!
-                    .map(x -> x.toString(indent + "  "))
-                    .collect(Collectors.joining("\n\n")));
+                                .map(x -> x.toString(indent + "  "))
+                                .collect(Collectors.joining("\n\n")));
         }
         return Optional.empty();
     }
@@ -558,7 +559,7 @@ public class EACommandLine extends CommandLine {
         }
         if (debug) {
             System.out.println(t.getRight().stream()
-                    .map(x -> x.toString("  ")).collect(Collectors.joining("\n\n")));
+                                .map(x -> x.toString("  ")).collect(Collectors.joining("\n\n")));
         }
     }
 

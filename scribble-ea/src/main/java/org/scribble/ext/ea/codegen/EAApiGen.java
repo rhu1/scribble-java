@@ -41,9 +41,27 @@ public class EAApiGen {
 
     //protected static final GField IS_USED_FIELD = new GField(List.of("var"), "Boolean", IS_USED_FIELD_NAME, "false");
 
-    public String generateAPI(GProtocol inlined, Role r, EGraph efsm) {
+    public String generateProtoAPI(GProtocol inlined) {
+        System.out.println("\n[EAAPIGen] Generating Proto API for: " + inlined.fullname);
 
-        System.out.println("\n[EAAPIGen] Generating API for: " + inlined.fullname + "@" + r);
+        GProtoName proto = inlined.fullname.getSimpleName();
+        List<GIndentable> membs = new LinkedList<>();
+
+        // !!! FIXME
+        membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
+        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("AP", "Session")));
+
+        List<Role> all = inlined.roles.stream().sorted(
+                (o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())
+        ).toList();
+        membs.add(generateAPCompanion(proto, all));
+        membs.add(generateAPClass(proto, all));
+        return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
+    }
+
+    public String generateRoleAPI(GProtocol inlined, Role r, EGraph efsm) {
+
+        System.out.println("\n[EAAPIGen] Generating Role API for: " + inlined.fullname + "@" + r);
 
         Pair<List<EState>, Map<Integer, String>> pair = getStatesAndNames(r, efsm);
         List<EState> ss = pair.left;
@@ -54,12 +72,15 @@ public class EAApiGen {
 
         // !!! FIXME
         membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
-        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Session", "Net")));
+        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Net", "Session")));
 
-        List<Role> peers = inlined.roles.stream().filter(x -> !x.equals(r)).toList();
+        List<Role> peers = inlined.roles.stream().filter(x -> !x.equals(r)).sorted(
+                (o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())
+        ).toList();
         membs.add(generateActorClass(names, proto, r, peers, ss.get(0)));
 
         for (EState s : ss) {
+
             EStateKind kind = s.getStateKind();
             switch (kind) {
                 case OUTPUT -> membs.add(generateOutputState(names, proto, r, s));
@@ -72,6 +93,25 @@ public class EAApiGen {
 
         //return generateTop(proto, r) + "\n" + res;
         return membs.stream().map(GIndentable::toString).collect(Collectors.joining("\n\n"));
+    }
+
+    protected String getAPClassName(GProtoName proto) {
+        return proto.getSimpleName().toString();
+    }
+
+    protected GObject generateAPCompanion(GProtoName proto, List<Role> all) {
+        String name = getAPClassName(proto);
+        List<GField> fields = List.of(
+                new GField(List.of("val"), "String", "name", "\"" + name + "\""),
+                new GField(List.of("val"), "Seq[Session.Role]", "roles", "Seq(" + all.stream().map(y -> "\"" + y + "\"").collect(Collectors.joining(", ")) + ")")
+        );
+        return new GObject(List.of(), name, List.of(), fields, List.of(), List.of());
+    }
+
+    protected GClass generateAPClass(GProtoName proto, List<Role> all) {
+        String name = getAPClassName(proto);
+        List<String> supers = List.of("AP(" + name + ".name, " + name + ".roles.toSet)");
+        return new GClass(List.of(), name, List.of(), List.of(), List.of(), supers);
     }
 
     protected String getActorClassName(Role r) {
@@ -378,7 +418,22 @@ class GField extends GParam implements GIndentable {
     }
 }
 
-class GClass implements GIndentable {
+class GClass extends GClassOrCompanion {
+    public GClass(List<String> mods, String name, List<GParam> params,
+                  List<GField> fields, List<GMethod> methods, List<String> supers) {
+        super("class", mods, name, params, fields, methods, supers);
+    }
+}
+
+class GObject extends GClassOrCompanion {
+    public GObject(List<String> mods, String name, List<GParam> params,
+                   List<GField> fields, List<GMethod> methods, List<String> supers) {
+        super("object", mods, name, params, fields, methods, supers);
+    }
+}
+
+abstract class GClassOrCompanion implements GIndentable {
+    public final String kind;
     public final List<String> mods;
     public final String name;
     public final List<GParam> params;
@@ -386,8 +441,9 @@ class GClass implements GIndentable {
     public final List<GMethod> methods;
     public final List<String> supers;
 
-    public GClass(List<String> mods, String name, List<GParam> params,
-                  List<GField> fields, List<GMethod> methods, List<String> supers) {
+    public GClassOrCompanion(String kind, List<String> mods, String name, List<GParam> params,
+                             List<GField> fields, List<GMethod> methods, List<String> supers) {
+        this.kind = kind;
         this.mods = List.copyOf(mods);
         this.name = name;
         this.params = List.copyOf(params);
@@ -403,14 +459,14 @@ class GClass implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "class " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")"
+        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + this.kind + " " + this.name + (this.params.isEmpty() ? "" : "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + ")")
                 + (this.supers.isEmpty() ? "" : " extends " + supers.stream().collect(Collectors.joining(", ")))
                 + (this.fields.isEmpty()
                    ? ""
-                   : " {\n" + pref + this.fields.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n\n")) + "\n}")
+                   : " {\n" + pref + this.fields.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n")) + "\n}")
                 + (this.methods.isEmpty()
                    ? ""
-                   : " {\n" + pref + this.methods.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n\n")) + "\n}");
+                   : " {\n\n" + pref + this.methods.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n\n")) + "\n}");
     }
 }
 
