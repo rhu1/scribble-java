@@ -18,6 +18,8 @@ data <java> "java.lang.String" from "rt.jar" as String;
 
 
 // TODO pay types
+// package/module
+// immutable data objects
 
 //* // gen01
 global protocol Proto1(role A, role B)

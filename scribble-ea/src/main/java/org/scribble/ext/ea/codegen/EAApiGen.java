@@ -122,7 +122,10 @@ public class EAApiGen {
 
     protected GMethod generateSuspend(Map<Integer, String> names, Role r, EState s) {
         String state = getStateTypeName(names, s);
-        List<GParam> params = List.of(new GParam(List.of(), state + " => " + DONE_TYPE, "f"));
+        List<GTParam> tParams = List.of(new GTParam("D", "Session.Data"));
+        List<GParam> params = List.of(
+                new GParam(List.of(), "D", "d"),
+                new GParam(List.of(), "(D, " + state + ") => " + DONE_TYPE, "f"));
         Function<EAction, String> f = (x) ->
                 "\tif (op == \"" + x.mid + "\") {"
                         + "\n\t\tval s = " + getSuccTypeName(names, s, x) + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")"
@@ -137,13 +140,13 @@ public class EAApiGen {
                 + "{"
                 + "\n\t\tthrow new RuntimeException(s\"[ERROR] Unexpected op: ${op}(${pay})\");"
                 + "\n\t}"
-                + "\n\tval done = f.apply(msg)"
+                + "\n\tval done = f.apply(d, msg)"
                 + "\n\tsucc.get.checkUsed()"
                 + "\n\tdone"
                 + "\n}"
                 + "\nactor.setHandler(" + SID_PARAM_NAME + ", \"" + r + "\", g)"
                 + "\nDone";
-        return new GMethod(List.of(), ACTOR_SUSPEND_METHOD, params, DONE_TYPE, body);
+        return new GMethod(List.of(), ACTOR_SUSPEND_METHOD, tParams, params, DONE_TYPE, body);
     }
 
     protected GIndentable generateOutputState(Map<Integer, String> names, GProtoName proto, Role r, EState s) {
@@ -170,7 +173,7 @@ public class EAApiGen {
         String body = CHECK_NOT_USED_METHOD + "()"
                 + "\n" + ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", \"" + dst + "\", \"" + op + "\", " + SEND_PAY_PARAM_NAME + ")"
                 + "\n" + ret + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")";
-        return new GMethod(List.of(), name, params, ret, body);
+        return new GMethod(List.of(), name, List.of(), params, ret, body);
     }
 
     protected GIndentable generateTerminalState(Map<Integer, String> names, GProtoName proto, Role r, EState s) {
@@ -192,7 +195,7 @@ public class EAApiGen {
                 + "\n" + ACTOR_PARAM_NAME + "." + ACTOR_END_METHOD + "(" + SID_PARAM_NAME + ", \"" + r + "\")"
                 + "\ndone";
         //ACTOR_FINISH_METHOD + "(" + SID_PARAM_NAME + ")";
-        return new GMethod(List.of("override"), name, List.of(), DONE_TYPE, body);
+        return new GMethod(List.of("override"), name, List.of(), List.of(), DONE_TYPE, body);
     }
 
 
@@ -361,13 +364,15 @@ class GClass implements GIndentable {
 class GMethod implements GIndentable {
     public final List<String> mods;
     public final String name;
+    public final List<GTParam> tParams;
     public final List<GParam> params;
     public final String ret;
     public final String body;
 
-    public GMethod(List<String> mods, String name, List<GParam> params, String ret, String body) {
+    public GMethod(List<String> mods, String name, List<GTParam> tParams, List<GParam> params, String ret, String body) {
         this.mods = List.copyOf(mods);
         this.name = name;
+        this.tParams = List.copyOf(tParams);
         this.params = List.copyOf(params);
         this.ret = ret;
         this.body = body;
@@ -380,9 +385,24 @@ class GMethod implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "def " + this.name + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + "): " + this.ret + " = {"
+        return pref + (this.mods.isEmpty() ? "" : this.mods.stream().collect(Collectors.joining(" ")) + " ") + "def " + this.name + (this.tParams.isEmpty() ? "" : "[" + this.tParams.stream().map(GTParam::toString).collect(Collectors.joining(", ")) + "]") + "(" + this.params.stream().map(GParam::toString).collect(Collectors.joining(", ")) + "): " + this.ret + " = {"
                 + "\n" + pref + "\t" + this.body.replaceAll("\\n", "\n" + pref + "\t")
                 + "\n" + pref + "}";
+    }
+}
+
+class GTParam {
+    final String name;
+    final String upper;
+
+    public GTParam(String name, String upper) {
+        this.name = name;
+        this.upper = upper;
+    }
+
+    @Override
+    public String toString() {
+        return this.name + " <: " + this.upper;
     }
 }
 
