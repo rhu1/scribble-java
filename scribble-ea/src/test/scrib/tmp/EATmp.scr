@@ -22,6 +22,9 @@ data <scala> "Int" from "TODO" as Int;
 // - pay types -> (de)serialization in Actor.sendMessage and handle SEND
 // - package from module
 // - immutable data objects?
+// - path dependent Done
+// - handler coalescing
+// - try session runtime using EDP and coalescing (cf. Init)
 
 
 /* // gen01
@@ -84,14 +87,14 @@ global protocol Proto1(role A, role B, role C)
 //*/
 
 
-/*// gen06
+/* // gen06
 global protocol Proto1(role A, role B) {
     L1(Int) from A to B;  // testing payload types
 }
 //*/
 
 
-//*// gen07, gen08  // Testing multiple session (suspendbang/join/become -- weaken/affine), A1/A2 - B
+/* // gen07, gen08  // Testing multiple session (suspendbang/join/become -- weaken/affine), A1/A2 - B
 global protocol Proto1(role A, role B) {
     L1(String) from A to B;
     L2(String) from B to A;
@@ -103,7 +106,7 @@ global protocol Proto1(role A, role B) {
 
 
 
-/* // Shop -- !!! -fair
+//* // Shop -- !!! -fair
 global protocol Proto1(role C, role S, role P)
 {
     ReqItems(String) from C to S;
@@ -114,7 +117,8 @@ global protocol Proto1(role C, role S, role P)
 aux global protocol Proto1Aux(role C, role S, role P)
 {
     choice at C {
-        ItemInfo(String) from C to S;
+        GetItemInfo(String) from C to S;
+        ItemInfo(String) from S to C;
         do Proto1Aux(C, S, P);
     } or {
         Checkout(String) from C to S;
@@ -123,11 +127,11 @@ aux global protocol Proto1Aux(role C, role S, role P)
             Buy(String) from S to P;
             choice at P {
                 OK(String) from P to S;
-                OKc(String) from S to C;
+                OKc(String) from S to C;  // delivery date
                 do Proto1Aux(C, S, P);
             } or {
                 Declined(String) from P to S;
-                Declinedc(String) from S to C;
+                Declinedc(String) from S to C;  // insufficient funds
                 do Proto1Aux(C, S, P);
             }
         } or {
@@ -136,4 +140,55 @@ aux global protocol Proto1Aux(role C, role S, role P)
         }
     }
 }
+
+global protocol Proto2(role SS, role SF) {
+    choice at SS {
+        AddItem(String) from SS to SF;
+        do Proto2(SS, SF);
+    } or {
+        RemoveItem(String) from SS to SF;
+        do Proto2(SS, SF);
+    }
+}
 //*/
+
+
+/* // robot
+global protocol Proto1(role R, role D, role W) {
+    WantD(String) from R to D;
+    WantW(String) from R to W;  // !!!
+    choice at D {
+        Busy(String) from D to R;
+        Cancel(String) from D to W;  // !!!
+    } or {
+        // fork
+        // [D] Open door
+        GoIn(String) from D to R;
+        Prepare(String) from D to W;
+
+        // join
+        // [R] Drive in
+        Inside(String) from R to D;
+        // [D] Close door
+        Prepared(String) from W to D;
+
+        Deliver(String) from D to W;
+        // [W] Lock table
+        Delivered(String) from W to R;
+        // [R] Take part
+
+        // fork
+        PartTaken(String) from R to W;
+        WantLeave(String) from R to D;
+
+        // join
+        // [D] Open door
+        GoOut(String) from D to R;
+        // [R] Drive out
+        Outside(String) from R to D;
+        // [D] Close door
+        TableIdle(String) from W to D;
+    }
+}
+//*/
+

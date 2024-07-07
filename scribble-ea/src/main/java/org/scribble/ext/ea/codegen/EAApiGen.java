@@ -248,11 +248,13 @@ public class EAApiGen {
                         + "\n\t\tsucc = Some(s)"
                         + "\n\t\t" + getInputCaseType(r, (Op) x.mid) + "(" + SID_PARAM_NAME + ", pay.asInstanceOf[" + getPayloadType(x) + "], s)"
                         + "\n\t} else ";
+        List<EAction> as = s.getDetActions();
+        Role peer = as.get(0).peer;
         String body = CHECK_NOT_USED_METHOD + "()"
                 + "\nval g = (op: String, pay: Object) => {"  // !!! Object -- cf. generic lambda not directly supported?
                 + "\nvar succ: Option[Session.ActorState[Actor]] = None"
                 + "\n\tval msg: " + state + " ="
-                + "\n" + s.getDetActions().stream().map(f).collect(Collectors.joining())
+                + "\n" + as.stream().map(f).collect(Collectors.joining())
                 + "{"
                 + "\n\t\tthrow new RuntimeException(s\"[ERROR] Unexpected op: ${op}(${pay})\");"
                 + "\n\t}"
@@ -260,7 +262,7 @@ public class EAApiGen {
                 + "\n\tsucc.get.checkUsed()"
                 + "\n\tdone"
                 + "\n}"
-                + "\nactor.setHandler(" + SID_PARAM_NAME + ", \"" + r + "\", g)"
+                + "\nactor.setHandler(" + SID_PARAM_NAME + ", \"" + r + "\", \"" + peer + "\", g)"
                 + "\nDone";
         return new GMethod(List.of(), ACTOR_SUSPEND_METHOD, tParams, params, DONE_TYPE, body);
     }
@@ -277,7 +279,7 @@ public class EAApiGen {
 
         List<GMethod> methods = Stream.concat(
                 s.getDetActions().stream()
-                 .map(x -> generateSend(x.peer, (Op) x.mid,
+                 .map(x -> generateSend(r, x.peer, (Op) x.mid,
                          getPayloadType(x), getSuccTypeName(names, s, x))),
                 Stream.of(generateWeaken(name))
         ).toList();
@@ -294,11 +296,11 @@ public class EAApiGen {
         return new GMethod(List.of(), name, List.of(), List.of(), ret, body);
     }
 
-    protected GMethod generateSend(Role dst, Op op, DataName pay, String ret) {
+    protected GMethod generateSend(Role src, Role dst, Op op, DataName pay, String ret) {
         String name = "send" + op;
         List<GParam> params = List.of(new GParam(List.of(), pay.toString(), SEND_PAY_PARAM_NAME));
         String body = CHECK_NOT_USED_METHOD + "()"
-                + "\n" + ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", \"" + dst + "\", \"" + op + "\", " + SEND_PAY_PARAM_NAME + ")"
+                + "\n" + ACTOR_PARAM_NAME + "." + ACTOR_SENDMESSAGE_METHOD + "(" + SID_PARAM_NAME + ", \"" + src + "\", \"" + dst + "\", \"" + op + "\", " + SEND_PAY_PARAM_NAME + ")"
                 + "\n" + ret + "(" + SID_PARAM_NAME + ", " + ACTOR_PARAM_NAME + ")";
         return new GMethod(List.of(), name, List.of(), params, ret, body);
     }
