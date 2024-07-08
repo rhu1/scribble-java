@@ -101,7 +101,7 @@ public class EAApiGen {
 
         List<Role> peers = //inlined.roles.stream().filter(x -> !x.equals(r)).sorted((o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())).toList();
                 inlined.roles.stream().filter(x -> !x.equals(r)).toList();
-        membs.add(generateActorClass(names, proto, r, peers, ss.get(0)));
+        membs.add(generateActorTrait(names, proto, r, peers, ss.get(0)));
 
         for (EState s : ss) {
 
@@ -137,16 +137,18 @@ public class EAApiGen {
         return new Pair<>(ss, names);
     }
 
-    protected GClass generateActorClass(Map<Integer, String> names, GProtoName proto, Role r, List<Role> peers, EState init) {
+    protected GTrait generateActorTrait(Map<Integer, String> names, GProtoName proto, Role r, List<Role> peers, EState init) {
 
         String initName = getInitName(names, init);
 
         String name = getActorClassName(r);
         //String actorType = getActorType(proto, r);
         List<GParam> params = List.of(new GParam(List.of(), PID_TYPE, PID_PARAM_NAME));
-        List<String> supers = List.of("Actor(" + PID_PARAM_NAME + ")");
+        //List<String> supers = List.of("Actor(" + PID_PARAM_NAME + ")");
+        List<String> supers = List.of("Actor");
         List<GMethod> methods = List.of(generateRegister(proto, r, peers, initName));
-        return new GClass(List.of(), name, params, List.of(), methods, supers);
+        //return new GClass(List.of(), name, params, List.of(), methods, supers);
+        return new GTrait(List.of(), name, supers, methods);
     }
 
     protected String getProtoPackageName(GProtoName proto) {
@@ -209,7 +211,7 @@ public class EAApiGen {
         GClass sus = new GClass(susMods, susName, susParams, susFields, susMethods, susSupers);
 
         String name = getStateTypeName(names, s);
-        GTrait state = new GTrait(List.of(SEALED_KW), name, List.of(ISTATE_TYPE));
+        GTrait state = new GTrait(List.of(SEALED_KW), name, List.of(ISTATE_TYPE), List.of());
 
         List<String> mods = susMods;
         List<GParam> params = List.of(
@@ -423,12 +425,14 @@ class GImport implements GIndentable {
 class GTrait implements GIndentable {
     public final List<String> mods;
     public final String name;
+    public final List<GMethod> methods;
     public final List<String> supers;
 
-    public GTrait(List<String> mods, String name, List<String> supers) {
+    public GTrait(List<String> mods, String name, List<String> supers, List<GMethod> methods) {
         this.mods = List.copyOf(mods);
         this.name = name;
         this.supers = List.copyOf(supers);
+        this.methods = List.copyOf(methods);
     }
 
     @Override
@@ -438,8 +442,10 @@ class GTrait implements GIndentable {
 
     @Override
     public String toString(String pref) {
-        return pref + String.join(" ", this.mods) + " trait " + this.name
-                + (this.supers.isEmpty() ? "" : " extends " + String.join(", ", supers));
+        return pref + (this.mods.isEmpty() ? "" : String.join(" ", this.mods) + " ") + "trait " + this.name + (this.supers.isEmpty() ? "" : " extends " + String.join(", ", supers))
+                + (this.methods.isEmpty()
+                   ? ""
+                   : " {\n\n" + pref + this.methods.stream().map(x -> x.toString(pref + "\t")).collect(Collectors.joining("\n\n")) + "\n}");
     }
 }
 
