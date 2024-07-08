@@ -162,7 +162,7 @@ public class EAApiGen {
     }
 
     protected GMethod generateRegister(GProtoName proto, Role r, List<Role> peers, String initName) {
-        String name = "register";
+        String name = "register" + r;
         List<GTParam> tParams = List.of(new GTParam("D", "Session.Data"));
         List<GParam> params = List.of(
                 new GParam(List.of(), "Int", "port"),

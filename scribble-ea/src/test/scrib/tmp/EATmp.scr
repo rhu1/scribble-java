@@ -166,7 +166,7 @@ global protocol Proto1(role R, role D, role W) {
         GoIn(String) from D to R;
         Prepare(String) from D to W;
 
-        // join
+        // join -- !!! testing async message arrival handler installed
         // [R] Drive in
         Inside(String) from R to D;
         // [D] Close door
