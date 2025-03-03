@@ -136,9 +136,19 @@ module tmp.Test;
 
 
 data <java> "..." from "..." as T;
+data <java> "java.lang.Integer" from "rt.jar" as Int;
 
+global protocol Adder(role C, role S) {
+    choice at C {
+        Add(Int, Int) from C to S;
+        Res(Int) from S to C;
+        do Adder(C, S);
+    } or {
+        Bye() from C to S;
+    }
+}
 
-//*
+/*
 global protocol Proto1(role A, role B)
 {
 	1(T) from A to B;

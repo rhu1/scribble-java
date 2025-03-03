@@ -97,7 +97,7 @@ public class EAApiGen {
 
         // !!! FIXME
         membs.add(new GPackage("tmp.scratch.scratch07." + getProtoPackageName(proto)));
-        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Net", "Session")));
+        membs.add(new GImport("tmp.scratch.scratch07.eventactor", List.of("Actor", "Done", "Session")));
 
         List<Role> peers = //inlined.roles.stream().filter(x -> !x.equals(r)).sorted((o1, o2) -> Comparator.<String>naturalOrder().compare(o1.toString(), o2.toString())).toList();
                 inlined.roles.stream().filter(x -> !x.equals(r)).toList();
@@ -283,7 +283,7 @@ public class EAApiGen {
                 s.getDetActions().stream()
                  .map(x -> generateSend(r, x.peer, (Op) x.mid,
                          getPayloadType(x), getSuccTypeName(names, s, x))),
-                Stream.of(generateWeaken(name))
+                Stream.of() //generateWeaken(name))
         ).toList();
 
         return new GClass(mods, name, params, List.of(), methods, supers);

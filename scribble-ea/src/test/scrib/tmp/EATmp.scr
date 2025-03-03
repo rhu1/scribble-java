@@ -106,7 +106,7 @@ global protocol Proto1(role A, role B) {
 
 
 
-//* // Shop -- !!! -fair
+/* // Shop -- !!! -fair
 global protocol Proto1(role C, role S, role P)
 {
     ReqItems(String) from C to S;
@@ -156,7 +156,7 @@ global protocol Proto2(role SS, role SF) {
 /* // robot
 global protocol Proto1(role R, role D, role W) {
     WantD(String) from R to D;
-    WantW(String) from R to W;  // !!!
+    WantW(String) from R to W;  // !!!  // XXX
     choice at D {
         Busy(String) from D to R;
         Cancel(String) from D to W;  // !!!
@@ -191,4 +191,72 @@ global protocol Proto1(role R, role D, role W) {
     }
 }
 //*/
+
+
+//* // chat
+global protocol Proto1(role C, role S) {  // ChatServer(ClientThread, RoomRegistry)
+    choice at C {
+        LookupRoom(String) from C to S;  // RoomName
+        choice at S {
+            RoomPID(String) from S to C;  // RoomName, PID => AP port
+            //C initiates ChatSession(C, new ChatRoom);  // !!!
+        } or {
+            RoomNotFound(String) from S to C;  // RoomName
+        }
+        do Proto1(C, S);
+    } or {
+        CreateRoom(String) from C to S;  // RoomName
+        choice at S {
+            CreateRoomSuccess(String) from S to C;  // RoomName
+        } or {
+            RoomExists(String) from S to C;  // RoomName
+        }
+        do Proto1(C, S);
+    } or {
+        ListRooms(String) from C to S;
+        RoomList(String) from S to C;  // List<RoomName>
+        do Proto1(C, S);
+    } or {
+        Bye(String) from C to S;  // !!!
+    }
+}
+
+global protocol Proto2(role C, role R) {  // C, R
+    choice at C {
+        OutgoingChatMessage(String) from C to R;
+        do Proto2(C, R);
+    } or {
+        LeaveRoom(String) from C to R;
+    }
+}
+
+global protocol Proto3(role R, role C){
+    choice at R {
+        IncomingChatMessage(String) from R to C;
+        do Proto3(R, C);
+    } or {
+        Bye(String) from R to C;
+    }
+}
+//*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
